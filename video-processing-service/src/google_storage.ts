@@ -15,11 +15,32 @@ const processedVideosDirectory = "./processed-videos";
 
 // this will create a local directory to hold our videos locally (raw and unprocessed)
 export function setUpDirectories() {
+    if (!fs.existsSync(rawVideosDirectory)) {
+        fs.mkdirSync(rawVideosDirectory);
+    }
 
+    if (!fs.existsSync(processedVideosDirectory)) {
+        fs.mkdirSync(processedVideosDirectory);
+    }
 }
+setUpDirectories()
 
-export async function uploadRawVideoToGCS(videoName: string) {
+/**
+ * Uploads a video to a google cloud storage bucket
+ * @param path
+ */
+export async function uploadRawVideoToGCS(path: string) {
+    if (!fs.existsSync(path)) {
+        return "Path does not exist"
+    }
 
+    try{
+        await storage.bucket(rawVideosBucketName).upload(path)
+        return "Video uploaded successfully"
+    }catch(err){
+        console.log(err);
+        return "Something went wrong internally"
+    }
 }
 
 /**
