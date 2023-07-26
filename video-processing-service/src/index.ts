@@ -13,8 +13,6 @@ app.use(express.json());
 app.post("/upload-raw-video", (req, res) => {
   const inputFilePath = req.body.inputFilePath as string;
 
-  console.log("Starting upload");
-
   if (!inputFilePath) {
     res.status(400).send("Bad Request : Missing file path.");
     return;
@@ -25,7 +23,6 @@ app.post("/upload-raw-video", (req, res) => {
     return;
   }
 
-  console.log("Uploading video to GCS");
 
   uploadRawVideoToGCS(inputFilePath).then(( result) => {
     if (result === "Video uploaded successfully") {

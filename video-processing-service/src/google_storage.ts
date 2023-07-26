@@ -49,6 +49,28 @@ export async function uploadRawVideoToGCS(path: string) {
  */
 export async function downloadRawVideoFromGCS(videoName: string) {
 
+    const pathDestination = `${rawVideosDirectory}/${videoName}`;
+
+    const options = {
+      destination : `${rawVideosDirectory}/${videoName}` // this is where we will store the video locally
+    }
+
+  if (!fs.existsSync(pathDestination)) {
+        return "Path does not exist"
+  }
+
+  if (!videoName){
+      return "Video name is missing"
+  }
+
+  try{
+      await storage.bucket(rawVideosBucketName).file(videoName).download(options)
+      return "Video downloaded successfully"
+  }catch (err){
+      console.log(err);
+      return "Something went wrong internally"
+  }
+
 }
 
 /**
