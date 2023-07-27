@@ -1,6 +1,7 @@
 import express from "express";
 import ffmpeg from "fluent-ffmpeg";
-import {uploadRawVideoToGCS} from "./google_storage";
+import {uploadRawVideoToGCS, downloadRawVideoFromGCS, processVideo, uploadProcessedVideoToGCS,
+rawVideosDirectory, processedVideosDirectory} from "./google_storage";
 import fs from "fs";
 
 const app = express();
@@ -41,25 +42,46 @@ app.post("/upload-raw-video", (req, res) => {
 
 app.post("/process-video", (req, res) =>{
    // Get the path of the input video
-    const inputFilePath = req.body.inputFilePath as string;
-    const outputFilePath = req.body.outputFilePath as string;
+    const videoName = req.body.videoName as string;
 
-
-    if (!inputFilePath || !outputFilePath) {
-        res.status(400).send("Bad Request : Missing file path.");
+    if (!videoName) {
+        res.status(400).send("Bad Request : Missing video name.");
         return;
     }
 
-    // Process the video
+    downloadRawVideoFromGCS(videoName).then(async (result) => {
+        if (result == "Path does not exist" || result == "Video name is missing") {
+            res.status(400).send("Bad Request : Missing file path or Video Name Missing");
+            return;
+        } else if (result == "Something went wrong internally") {
+            res.status(500).send("Something went wrong internally");
+            return;
+        } else if (result == "Video downloaded successfully") {
+            const videoPath = `${rawVideosDirectory}/${videoName}`;
+            try {
+                await processVideo(videoName,videoPath);
+                uploadProcessedVideoToGCS(videoName).then((result) => {
+                if (result == "Video uploaded successfully") {
+                    res.status(200).send("Video uploaded successfully");
+                    return;
+                } else if (result == "Video does not exist") {
+                    res.status(400).send("VideoPath does not exist");
+                    return;
+                }
+                else if (result == "Something went wrong internally") {
+                    res.status(500).send("Something went wrong internally");
+                    return;
+                }
+            })
+            } catch (err) {
+                console.log(err);
+                res.status(500).send("Something went wrong internally");
+                return;
+            }
 
-    ffmpeg(inputFilePath).outputOption("-vf", "scale=1080:-1") // convert into 1080p
-        .on("end", () => {
-             res.status(200).send("Video Processing Completed")
-        })
-        .on("error", (err) => {
-            console.log(err);
-            res.status(500).send("Something went wrong");
-        }).save(outputFilePath);
+            res.status(200).send("Video processed and uploaded successfully");
+        }
+    })
 
 })
 

@@ -4,14 +4,16 @@
 import { Storage } from '@google-cloud/storage';
 import fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
+import {rejects} from "assert";
 
 const storage = new Storage();
 
 const rawVideosBucketName = "video-service-raw12345-videos2002";
 const processedVideosBucketName = "video-service-processed12345-videos2002";
 
-const rawVideosDirectory = "./raw-videos";
-const processedVideosDirectory = "./processed-videos";
+
+export const rawVideosDirectory = "./raw-videos";
+export const processedVideosDirectory = "./processed-videos";
 
 // this will create a local directory to hold our videos locally (raw and unprocessed)
 export function setUpDirectories() {
@@ -55,14 +57,14 @@ export async function downloadRawVideoFromGCS(videoName: string) {
     const pathDestination = `${rawVideosDirectory}/${videoName}`;
 
     const options = {
-      destination : `${rawVideosDirectory}/${videoName}` // this is where we will store the video locally
+      destination : pathDestination// this is where we will store the video locally
     }
 
-    if (!fs.existsSync(pathDestination)) {
+    if (!fs.existsSync(rawVideosDirectory)) {
         return "Path does not exist"
     }
 
-    console.log(pathDestination + " exists");
+    console.log(rawVideosDirectory + " exists");
 
     if (!videoName){
       return "Video name is missing"
@@ -85,25 +87,22 @@ export async function downloadRawVideoFromGCS(videoName: string) {
 
 /**
  * processes a video using ffmpeg
+ * @param videoName
  * @param filePath
  */
-export function processVideo (filePath : string){
-    if (!fs.existsSync(filePath)) {
-        return "Path does not exist"
-    }
-
-    console.log(filePath + " exists");
-
-    ffmpeg(filePath).outputOption("-vf", "scale=1080:-1") // convert into 1080p
-        .on("end", () => {
-            console.log("Video Processing Completed")
-        })
-        .on("error", (err) => {
-            console.log(err);
-            return "Something went wrong"
-        }).save('${processedVideosDirectory}/${videoName}-processed');
-
-    return "Video Processing Completed"
+export async function processVideo (videoName : string, filePath : string){
+    const outputFilePath = `${processedVideosDirectory}/${videoName}` as string;
+    return new Promise<void>((resolve, reject) => {
+        ffmpeg(filePath).outputOption("-vf", "scale=1080:-1") // convert into 1080p
+            .on("end", () => {
+                console.log("Video Processing Completed")
+                resolve();
+            })
+            .on("error", (err) => {
+                console.log(err);
+                reject();
+            }).save(outputFilePath);
+    })
 }
 
 /**
@@ -111,7 +110,7 @@ export function processVideo (filePath : string){
  * @param videoName
  */
 export async function uploadProcessedVideoToGCS(videoName : string){
-    const videoPath = `${processedVideosDirectory}/${videoName}-processed`;
+    const videoPath = `${processedVideosDirectory}/${videoName}`;
 
     if (!fs.existsSync(videoPath)) {
         return "Video does not exist"
@@ -120,7 +119,9 @@ export async function uploadProcessedVideoToGCS(videoName : string){
     console.log(videoPath + " exists for processed video upload");
 
     try{
-        await storage.bucket(processedVideosBucketName).upload(videoPath)
+        await storage.bucket(processedVideosBucketName).upload(videoPath, {
+      destination: videoName,
+    })
         console.log("Processed video uploading successfully");
         return "Video uploaded successfully"
     }catch (err){
@@ -129,5 +130,33 @@ export async function uploadProcessedVideoToGCS(videoName : string){
         return "Something went wrong internally"
     }
 
+}
+
+export function deleteRawVideoFromGCS(videoName : string){
+    if (!videoName){
+        return "Video name is missing"
+    }
+
+    try{
+        storage.bucket(rawVideosBucketName).file(videoName).delete().then(r => console.log(r))
+        console.log("Raw video deleted successfully")
+        return "Video deleted successfully"
+    }catch (err){
+        console.log(err);
+        console.log("Something went wrong while deleting raw video")
+        return "Something went wrong internally"
+    }
+}
+
+export function deleteRawAndProcessedFromDirectory (videoName : string){
+     if (fs.existsSync(`${rawVideosDirectory} + ${videoName}`)) {
+         fs.unlinkSync(`${rawVideosDirectory} + ${videoName}`)
+         console.log("Raw video deleted successfully")
+     }
+
+    if (fs.existsSync(`${processedVideosDirectory} + ${videoName}`)) {
+        fs.unlinkSync(`${processedVideosDirectory} + ${videoName}`)
+         console.log("Processed video deleted successfully")
+    }
 }
 
