@@ -62,7 +62,11 @@ app.post("/process-video", (req, res) =>{
                 await processVideo(videoName,videoPath);
                 uploadProcessedVideoToGCS(videoName).then((result) => {
                 if (result == "Video uploaded successfully") {
-                    res.status(200).send("Video uploaded successfully");
+                    res.setHeader("Content-Type", "application/json");
+                    res.send({
+                        status: "success",
+                        message: "Video processed and uploaded successfully"
+                    });
                     return;
                 } else if (result == "Video does not exist") {
                     res.status(400).send("VideoPath does not exist");
