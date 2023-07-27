@@ -75,10 +75,21 @@ export async function downloadRawVideoFromGCS(videoName: string) {
 
 /**
  * processes a video using ffmpeg
- * @param processedVideoName
+ * @param filePath
  */
-export function processVideo (processedVideoName : string){
+export function processVideo (filePath : string){
+    if (!fs.existsSync(filePath)) {
+        return "Path does not exist"
+    }
 
+    ffmpeg(filePath).outputOption("-vf", "scale=1080:-1") // convert into 1080p
+        .on("end", () => {
+             return "Video Processing Completed"
+        })
+        .on("error", (err) => {
+            console.log(err);
+            return "Something went wrong"
+        }).save('${processedVideosDirectory}/${videoName}-processed');
 }
 
 /**
