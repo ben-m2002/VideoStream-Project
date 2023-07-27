@@ -90,19 +90,34 @@ export async function downloadRawVideoFromGCS(videoName: string) {
  * @param videoName
  * @param filePath
  */
+
 export async function processVideo (videoName : string, filePath : string){
     const outputFilePath = `${processedVideosDirectory}/${videoName}` as string;
     return new Promise<void>((resolve, reject) => {
-        ffmpeg(filePath).outputOption("-vf", "scale=1080:-1") // convert into 1080p
-            .on("end", () => {
-                console.log("Video Processing Completed")
-                resolve();
-            })
-            .on("error", (err) => {
-                console.log(err);
-                reject();
-            }).save(outputFilePath);
-    })
+        ffmpeg(filePath)
+          .outputOptions(["-vf", "scale=720:-1", "-r", "30", "-c:v libx264", "-preset ultrafast"]) // 720p
+          .on("end", function () {
+            console.log("Processing finished successfully");
+            resolve();
+          })
+          .on("error", function (err: any) {
+            console.log("An error occurred: " + err.message);
+            reject(err);
+          })
+          .save(`${processedVideosDirectory}/${videoName}`);
+    });
+    // return new Promise<void>((resolve, reject) => {
+    //     ffmpeg(filePath)
+    //         .outputOptions(["-vf", "scale=-1:720", "-r", "30", "-c:v libx264", "-preset ultrafast"]) // Scale video to 720p height (maintaining aspect ratio), set frame rate to 30 fps, set video codec to libx264 (H.264), set ultrafast preset for faster encoding
+    //         .output(outputFilePath) // Set the output file path
+    //     .on("end", () => {
+    //         console.log("Video processing completed");
+    //     })
+    //     .on("error", (err) => {
+    //         console.error("Error during video processing:", err);
+    //     })
+    //     .run();
+    // });
 }
 
 /**
@@ -129,7 +144,6 @@ export async function uploadProcessedVideoToGCS(videoName : string){
         console.log("Something went wrong while uploading processed video")
         return "Something went wrong internally"
     }
-
 }
 
 export function deleteRawVideoFromGCS(videoName : string){
@@ -149,13 +163,13 @@ export function deleteRawVideoFromGCS(videoName : string){
 }
 
 export function deleteRawAndProcessedFromDirectory (videoName : string){
-     if (fs.existsSync(`${rawVideosDirectory} + ${videoName}`)) {
-         fs.unlinkSync(`${rawVideosDirectory} + ${videoName}`)
+     if (fs.existsSync(`${rawVideosDirectory}/${videoName}`)) {
+         fs.unlinkSync(`${rawVideosDirectory}/${videoName}`)
          console.log("Raw video deleted successfully")
      }
 
-    if (fs.existsSync(`${processedVideosDirectory} + ${videoName}`)) {
-        fs.unlinkSync(`${processedVideosDirectory} + ${videoName}`)
+    if (fs.existsSync(`${processedVideosDirectory}/${videoName}`)) {
+        fs.unlinkSync(`${processedVideosDirectory}/${videoName}`)
          console.log("Processed video deleted successfully")
     }
 }

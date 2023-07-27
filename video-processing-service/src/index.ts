@@ -1,7 +1,9 @@
 import express from "express";
 import ffmpeg from "fluent-ffmpeg";
-import {uploadRawVideoToGCS, downloadRawVideoFromGCS, processVideo, uploadProcessedVideoToGCS,
-rawVideosDirectory, processedVideosDirectory} from "./google_storage";
+import {
+    uploadRawVideoToGCS, downloadRawVideoFromGCS, processVideo, uploadProcessedVideoToGCS,
+    rawVideosDirectory, processedVideosDirectory, deleteRawVideoFromGCS, deleteRawAndProcessedFromDirectory
+} from "./google_storage";
 import fs from "fs";
 
 const app = express();
@@ -24,7 +26,6 @@ app.post("/upload-raw-video", (req, res) => {
     return;
   }
 
-
   uploadRawVideoToGCS(inputFilePath).then(( result) => {
     if (result === "Video uploaded successfully") {
         res.status(200).send("Video uploaded successfully")
@@ -40,54 +41,58 @@ app.post("/upload-raw-video", (req, res) => {
 
 })
 
-app.post("/process-video", (req, res) =>{
-   // Get the path of the input video
-    const videoName = req.body.videoName as string;
+app.post("/process-video", (req, res) => {
+  const videoName = req.body.videoName as string;
 
-    if (!videoName) {
-        res.status(400).send("Bad Request : Missing video name.");
-        return;
-    }
+  if (!videoName) {
+    return res.status(400).send("Bad Request : Missing video name.");
+  }
 
-    downloadRawVideoFromGCS(videoName).then(async (result) => {
-        if (result == "Path does not exist" || result == "Video name is missing") {
-            res.status(400).send("Bad Request : Missing file path or Video Name Missing");
-            return;
-        } else if (result == "Something went wrong internally") {
-            res.status(500).send("Something went wrong internally");
-            return;
-        } else if (result == "Video downloaded successfully") {
-            const videoPath = `${rawVideosDirectory}/${videoName}`;
-            try {
-                await processVideo(videoName,videoPath);
-                uploadProcessedVideoToGCS(videoName).then((result) => {
-                if (result == "Video uploaded successfully") {
-                    res.setHeader("Content-Type", "application/json");
-                    res.send({
-                        status: "success",
-                        message: "Video processed and uploaded successfully"
-                    });
-                    return;
-                } else if (result == "Video does not exist") {
-                    res.status(400).send("VideoPath does not exist");
-                    return;
-                }
-                else if (result == "Something went wrong internally") {
-                    res.status(500).send("Something went wrong internally");
-                    return;
-                }
+  downloadRawVideoFromGCS(videoName)
+    .then(async (result) => {
+      if (
+        result == "Path does not exist" ||
+        result == "Video name is missing"
+      ) {
+        return res
+          .status(400)
+          .send("Bad Request : Missing file path or Video Name Missing");
+      } else if (result == "Something went wrong internally") {
+        return res.status(500).send("Something went wrong internally");
+      } else if (result == "Video downloaded successfully") {
+        const videoPath = `${rawVideosDirectory}/${videoName}`;
+        try {
+          await processVideo(videoName, videoPath);
+          uploadProcessedVideoToGCS(videoName)
+            .then((result) => {
+              if (result == "Video uploaded successfully") {
+                // some clean up
+                deleteRawVideoFromGCS(videoName);
+                deleteRawAndProcessedFromDirectory(videoName);
+                return res
+                  .status(200)
+                  .send("Video processed and uploaded successfully");
+              } else if (result == "Video does not exist") {
+                return res.status(400).send("VideoPath does not exist");
+              } else if (result == "Something went wrong internally") {
+                return res.status(500).send("Something went wrong internally");
+              }
             })
-            } catch (err) {
-                console.log(err);
-                res.status(500).send("Something went wrong internally");
-                return;
-            }
-
-            res.status(200).send("Video processed and uploaded successfully");
+            .catch((error) => {
+              console.log(error);
+              return res.status(500).send("Something went wrong");
+            });
+        } catch (err) {
+          console.log(err);
+          return res.status(500).send("Something went wrong internally");
         }
+      }
     })
-
-})
+    .catch((error) => {
+      console.log(error);
+      return res.status(500).send("Something went wrong");
+    });
+});
 
 const port = process.env.PORT || 8080;
 app.listen(port, () =>{
