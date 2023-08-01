@@ -57,7 +57,7 @@ app.post("/process-video", (req, res) => {
   }
 
 
-  const videoName = data.Name;
+  const videoName = data.name;
 
   if (!videoName) {
     return res.status(400).send("Bad Request : Missing video name.");
