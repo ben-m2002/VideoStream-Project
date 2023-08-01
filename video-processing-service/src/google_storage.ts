@@ -137,6 +137,7 @@ export async function uploadProcessedVideoToGCS(videoName : string){
         await storage.bucket(processedVideosBucketName).upload(videoPath, {
       destination: videoName,
     })
+        await storage.bucket(processedVideosBucketName).file(videoName).makePublic() // make the video public
         console.log("Processed video uploading successfully");
         return "Video uploaded successfully"
     }catch (err){
