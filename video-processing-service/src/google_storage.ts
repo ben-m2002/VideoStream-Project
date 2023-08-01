@@ -25,7 +25,6 @@ export function setUpDirectories() {
         fs.mkdirSync(processedVideosDirectory);
     }
 }
-setUpDirectories()
 
 /**
  * Uploads a video to a google cloud storage bucket
@@ -53,7 +52,7 @@ export async function uploadRawVideoToGCS(path: string) {
  * @param videoName
  */
 export async function downloadRawVideoFromGCS(videoName: string) {
-
+    setUpDirectories();
     const pathDestination = `${rawVideosDirectory}/${videoName}`;
 
     const options = {
