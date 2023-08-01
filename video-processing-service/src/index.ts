@@ -42,7 +42,22 @@ app.post("/upload-raw-video", (req, res) => {
 })
 
 app.post("/process-video", (req, res) => {
-  const videoName = req.body.videoName as string;
+
+   // Get the bucket and filename from the Cloud Pub/Sub message
+  let data;
+  try {
+    const message = Buffer.from(req.body.message.data, 'base64').toString('utf8');
+    data = JSON.parse(message);
+    if (!data.name) {
+      throw new Error('Invalid message payload received.');
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(400).send('Bad Request: missing filename.');
+  }
+
+
+  const videoName = data.Name;
 
   if (!videoName) {
     return res.status(400).send("Bad Request : Missing video name.");
