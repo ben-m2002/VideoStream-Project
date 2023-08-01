@@ -42,7 +42,7 @@ app.post("/upload-raw-video", (req, res) => {
 })
 
 app.post("/process-video", (req, res) => {
-
+    console.log(req.body);
    // Get the bucket and filename from the Cloud Pub/Sub message
   let data;
   try {
